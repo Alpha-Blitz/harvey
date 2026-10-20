@@ -123,18 +123,14 @@ async def test_claude_model_choice_is_passed_per_call(state, monkeypatch):
 
 @pytest.mark.asyncio
 async def test_long_claude_prompts_still_go_via_stdin(state, monkeypatch):
-    """Windows long-prompt fix: prompts past the argv limit travel on stdin."""
-    captured = _capture_exec(monkeypatch)
-    long_prompt = "x" * (brain_mod._MAX_ARGV_PROMPT_CHARS + 1)
-    await Brain(state).think(long_prompt)
-    assert long_prompt not in captured["cmd"]
-    assert captured["kwargs"]["stdin"] == asyncio.subprocess.PIPE
-    assert captured["proc"].stdin_data == long_prompt.encode("utf-8")
-
-    short = _capture_exec(monkeypatch)
-    await Brain(state).think("short")
-    assert "short" in short["cmd"]
-    assert short["kwargs"]["stdin"] == asyncio.subprocess.DEVNULL
+    """Windows long-prompt fix: prompts travel on stdin. Now every prompt
+    does, so none is visible in argv (``ps``) or re-parsed by a .cmd shim."""
+    for prompt in ("x" * 40000, "short"):
+        captured = _capture_exec(monkeypatch)
+        await Brain(state).think(prompt)
+        assert prompt not in captured["cmd"]
+        assert captured["kwargs"]["stdin"] == asyncio.subprocess.PIPE
+        assert captured["proc"].stdin_data == prompt.encode("utf-8")
 
 
 # ── Codex path ──
@@ -221,9 +217,11 @@ async def test_codex_retries_are_bounded(state, monkeypatch):
 
 
 @pytest.mark.asyncio
-async def test_claude_preflight_is_a_no_op(state, monkeypatch):
+async def test_claude_preflight_sends_no_prompt(state, monkeypatch):
+    """Claude's preflight only checks the CLI's flags (``--help``): it never
+    starts a model call."""
     async def no_process(*a, **k):
-        raise AssertionError("Claude preflight must not start anything")
+        raise AssertionError("Claude preflight must not start a model call")
 
     monkeypatch.setattr(brain_mod.asyncio, "create_subprocess_exec", no_process)
     assert await Brain(state).preflight() == ""
@@ -505,11 +503,15 @@ async def test_codex_setup_does_not_require_claude(monkeypatch, tmp_path):
 
 @pytest.fixture
 def client(monkeypatch, tmp_path):
+    """An authorised same-origin client (the dashboard's own UI)."""
     db = tmp_path / "harvey.db"
     asyncio.run(StateManager(str(db)).init_db())
     monkeypatch.setattr(dash, "DB_PATH", db)
     monkeypatch.setattr(dash, "_quota_clients", {})
-    with TestClient(dash.app) as c:
+    dash.token_store.configure(tmp_path / "data" / "dashboard-token")
+    token = dash.token_store.get()
+    with TestClient(dash.app, base_url="http://127.0.0.1:5555",
+                    headers={"Authorization": f"Bearer {token}"}) as c:
         c.db_path = db
         yield c
 
@@ -669,7 +671,7 @@ def test_cli_status_check_reports_readiness(monkeypatch, tmp_path, capsys):
                       config=BrainConfig(provider="codex", model="gpt-5.5"))
     assert "Codex (gpt-5.5) ready" in out
     out = _status_cli(monkeypatch, tmp_path, capsys, check=True, config=BrainConfig())
-    assert "Claude (not checked" in out
+    assert "Claude CLI isolation flags present (login not checked" in out
 
 
 def test_quota_card_renders_unavailable_codex_quota():

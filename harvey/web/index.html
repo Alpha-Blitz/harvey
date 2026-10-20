@@ -3,10 +3,33 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="referrer" content="no-referrer">
 <title>Harvey — Command Deck</title>
+<!-- First, so the token leaves the address bar before anything else runs. -->
+<script src="/static/auth.js"></script>
 <link rel="stylesheet" href="/static/app.css">
 </head>
 <body>
+
+<!-- Shown whenever the API refuses this tab (no token, a wrong one, or none on the server). -->
+<div id="lock-screen"
+     style="display:none;position:fixed;inset:0;z-index:1000;background:var(--bg);align-items:center;justify-content:center;padding:24px">
+  <div class="card" style="max-width:520px;width:100%">
+    <h2>Dashboard locked</h2>
+    <p class="lede" id="lock-reason" role="alert"></p>
+    <p class="lede">Open the link that <span style="font-family:var(--mono);font-size:12px">harvey dashboard</span>
+      printed in your terminal, or run <span style="font-family:var(--mono);font-size:12px">harvey dashboard --url</span>
+      to print it again. You can also paste the token from
+      <span style="font-family:var(--mono);font-size:12px">data/dashboard-token</span>:</p>
+    <form onsubmit="unlockWithToken(event)" class="form-row" style="align-items:flex-end">
+      <div class="form-group" style="margin-bottom:0">
+        <label class="form-label" for="lock-token">Dashboard token</label>
+        <input type="password" class="form-input" id="lock-token" autocomplete="off" spellcheck="false">
+      </div>
+      <button class="btn btn-primary" type="submit">Unlock</button>
+    </form>
+  </div>
+</div>
 
 <header>
   <div class="brand">
@@ -146,8 +169,8 @@
   <div class="section-head" style="display:flex;align-items:flex-end;justify-content:space-between;gap:16px">
     <div><h2>Contacts</h2><p>People Harvey has found and verified.</p></div>
     <div style="display:flex;gap:8px;flex-shrink:0">
-      <a class="btn btn-secondary btn-sm" href="/api/export/prospects.csv" download>Export deliverable CSV</a>
-      <a class="btn btn-secondary btn-sm" href="/api/export/prospects.csv?all=true" download>Export all</a>
+      <button class="btn btn-secondary btn-sm" onclick="downloadCsv('/api/export/prospects.csv', 'prospects.csv', this)">Export deliverable CSV</button>
+      <button class="btn btn-secondary btn-sm" onclick="downloadCsv('/api/export/prospects.csv?all=true', 'prospects-all.csv', this)">Export all</button>
     </div>
   </div>
   <div id="prospects-table"></div>

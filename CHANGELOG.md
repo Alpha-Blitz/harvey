@@ -7,6 +7,14 @@ minor versions can still change behaviour.
 
 ## [Unreleased]
 
+### Fixed
+
+- Protect the local dashboard with an access token, restrict requests to trusted
+  local origins, and save settings with owner-only permissions. Update and restart
+  Harvey, then open the dashboard link printed in your terminal.
+- Isolate Claude calls from personal instructions and hooks, and fix Claude CLI
+  installation in Docker. Thanks to @EICCIO-Advisors for the private report.
+
 ### Added
 
 - **Microsoft 365 mail provider.** Set `channels.email.provider: microsoft` to

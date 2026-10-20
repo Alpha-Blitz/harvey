@@ -172,13 +172,22 @@ def cmd_train(args):
 
 def cmd_dashboard(args):
     """Launch the local web dashboard."""
-    from harvey.dashboard import start_dashboard
+    from harvey.dashboard import DashboardSetupError, dashboard_url, start_dashboard
+    from harvey.dashboard_auth import TokenError
 
     if not 1 <= args.port <= 65535:
         print(f"  Invalid port: {args.port}. Must be 1-65535.")
         sys.exit(2)
 
-    start_dashboard(host=args.host, port=args.port)
+    try:
+        if getattr(args, "url", False):
+            # The unlock link for an already-running dashboard.
+            print(dashboard_url(host=args.host, port=args.port))
+            return
+        start_dashboard(host=args.host, port=args.port)
+    except (DashboardSetupError, TokenError) as e:
+        print(f"\n  Dashboard not started: {e}\n")
+        sys.exit(2)
 
 
 def cmd_status(args):
@@ -227,8 +236,8 @@ def cmd_status(args):
                     print(f"  Brain:                {label} ready (CLI, isolation, login, "
                           "model and account checked; no prompt sent)")
                 else:
-                    print(f"  Brain:                {label} (not checked: Claude is checked "
-                          "by its first call)")
+                    print(f"  Brain:                {label} CLI isolation flags present "
+                          "(login not checked: Claude is checked by its first call)")
         elif brain_status.get("status") == "paused":
             label = {"claude": "Claude", "codex": "Codex"}.get(brain_status.get("provider"), "Brain")
             print(f"  Brain:                {label} PAUSED since {brain_status.get('since', '?')}")
@@ -700,8 +709,12 @@ def main():
 
     # harvey dashboard
     sub = subparsers.add_parser("dashboard", help="Open the web dashboard")
-    sub.add_argument("--host", default="127.0.0.1", help="Host (default: 127.0.0.1)")
+    sub.add_argument("--host", default="127.0.0.1",
+                     help="Loopback address to listen on (default: 127.0.0.1; "
+                          "other addresses are refused)")
     sub.add_argument("--port", type=int, default=5555, help="Port (default: 5555)")
+    sub.add_argument("--url", action="store_true",
+                     help="Print the unlock link (with its token) and exit")
     sub.set_defaults(func=cmd_dashboard)
 
     # harvey status
@@ -709,7 +722,7 @@ def main():
     sub.add_argument(
         "--check", action="store_true",
         help="Also check the configured brain now (Codex: CLI version, isolation "
-             "and login; no model call)",
+             "and login; Claude: CLI isolation flags; no model call)",
     )
     sub.set_defaults(func=cmd_status)
 

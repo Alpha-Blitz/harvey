@@ -1,12 +1,15 @@
 """Harvey Dashboard — local web UI to set up, control, and monitor Harvey."""
 
 import asyncio
+import ipaddress
 import json
 import logging
 import os
 import signal
+import stat
 import subprocess
 import sys
+import tempfile
 import uuid
 from datetime import datetime
 from pathlib import Path
@@ -21,12 +24,14 @@ from fastapi.responses import (
 
 logger = logging.getLogger("harvey.dashboard")
 
+from harvey import dashboard_auth as auth  # noqa: E402
 from harvey.paths import PROJECT_ROOT  # noqa: E402
 DB_PATH = PROJECT_ROOT / "data" / "harvey.db"
 ENV_FILE = PROJECT_ROOT / ".env"
 CONFIG_FILE = PROJECT_ROOT / "harvey.yaml"
 PID_FILE = PROJECT_ROOT / "data" / "harvey.pid"
 LOG_FILE = PROJECT_ROOT / "data" / "harvey.log"
+TOKEN_FILE = PROJECT_ROOT / "data" / "dashboard-token"
 
 
 def _resolve_config_file() -> Path:
@@ -40,7 +45,11 @@ def _resolve_config_file() -> Path:
     except ConfigFileNotFoundError:
         return CONFIG_FILE
 
-app = FastAPI(title="Harvey Dashboard")
+# No /docs, /redoc or /openapi.json: the API is for this UI only, and every
+# route except the static shell needs the token (see dashboard_auth).
+app = FastAPI(title="Harvey Dashboard", docs_url=None, redoc_url=None, openapi_url=None)
+token_store = auth.TokenStore(TOKEN_FILE)
+app.add_middleware(auth.DashboardGuard, store=token_store)
 
 # Harvey process tracking
 _harvey_process: subprocess.Popen | None = None
@@ -89,12 +98,60 @@ def _read_env_file() -> dict[str, str]:
     return env_vars
 
 
+def _env_key(line: str) -> str:
+    stripped = line.strip()
+    if not stripped or stripped.startswith("#") or "=" not in stripped:
+        return ""
+    key = stripped.partition("=")[0].strip()
+    if key.startswith("export "):
+        key = key[len("export "):].strip()
+    return key
+
+
 def _write_env_file(updates: dict[str, str]):
-    """Update .env file with new values, preserving existing entries."""
-    existing = _read_env_file()
-    existing.update(updates)
-    lines = [f"{k}={v}" for k, v in existing.items()]
-    ENV_FILE.write_text("\n".join(lines) + "\n")
+    """Set keys in .env, keeping every other line (comments, order, other
+    keys) as it was.
+
+    Written to a private temporary file in the same directory and swapped
+    in atomically, so a crash never leaves a half-written .env and the
+    credentials are never readable by other users, even for a moment: the
+    result is owner-only (0600 on POSIX) whether .env existed or not. A
+    symlinked .env is refused rather than replaced or followed.
+    """
+    if ENV_FILE.is_symlink():
+        raise OSError(f"{ENV_FILE} is a symbolic link; edit it by hand.")
+    if ENV_FILE.exists() and not ENV_FILE.is_file():
+        raise OSError(f"{ENV_FILE} is not a regular file.")
+    lines = (ENV_FILE.read_text(encoding="utf-8").splitlines()
+             if ENV_FILE.exists() else [])
+
+    out, written = [], set()
+    for line in lines:
+        key = _env_key(line)
+        if key in updates:
+            if key in written:
+                continue  # a later duplicate would override the new value
+            out.append(f"{key}={updates[key]}")
+            written.add(key)
+        else:
+            out.append(line)
+    out += [f"{k}={v}" for k, v in updates.items() if k not in written]
+
+    fd, tmp = tempfile.mkstemp(prefix=".env.", suffix=".tmp", dir=str(ENV_FILE.parent))
+    try:
+        with os.fdopen(fd, "w", encoding="utf-8", newline="\n") as f:
+            if os.name != "nt":
+                os.fchmod(f.fileno(), stat.S_IRUSR | stat.S_IWUSR)
+            f.write("\n".join(out) + "\n")
+            f.flush()
+            os.fsync(f.fileno())
+        os.replace(tmp, ENV_FILE)
+    except BaseException:
+        try:
+            os.unlink(tmp)
+        except FileNotFoundError:
+            pass
+        raise
     load_dotenv(str(ENV_FILE), override=True)
 
 
@@ -315,8 +372,16 @@ async def save_env_settings(request: Request):
                      "IMAP_HOST", "IMAP_PORT", "IMAP_USERNAME", "IMAP_PASSWORD",
                      "REOON_API_KEY", "ZEROBOUNCE_API_KEY", "HUNTER_API_KEY"]:
             if key in data and data[key] is not None:
+                value = data[key]
+                if isinstance(value, bool) or not isinstance(value, (str, int, float)):
+                    return JSONResponse({"success": False, "message": f"{key} must be text."},
+                                        status_code=400)
+                value = str(value)
+                if len(value) > 4096 or "\x00" in value:
+                    return JSONResponse({"success": False, "message": f"{key} is invalid."},
+                                        status_code=400)
                 # Strip newlines so a crafted value can't inject extra .env entries
-                updates[key] = str(data[key]).replace("\n", " ").replace("\r", " ").strip()
+                updates[key] = value.replace("\n", " ").replace("\r", " ").strip()
         if updates:
             try:
                 _write_env_file(updates)
@@ -1333,10 +1398,52 @@ async def dashboard():
     return (WEB_DIR / "index.html").read_text(encoding="utf-8")
 
 
+class DashboardSetupError(Exception):
+    """The dashboard can't start safely; the message says what to do."""
+
+
+def _check_loopback_bind(host: str) -> str:
+    """The host to bind, which must be a loopback address. The dashboard has
+    no remote-access mode: from another machine, use an SSH tunnel."""
+    name = (host or "").strip().lower()
+    if name.startswith("[") and name.endswith("]"):
+        name = name[1:-1]
+    if not auth.is_loopback(name):
+        raise DashboardSetupError(
+            f"Refusing to listen on {host!r}: the dashboard only listens on this machine "
+            "(127.0.0.1, ::1 or localhost). To reach it from elsewhere, tunnel instead: "
+            "ssh -L 5555:127.0.0.1:5555 <this-host>")
+    return name
+
+
+def dashboard_url(host: str = "127.0.0.1", port: int = 5555) -> str:
+    """The unlock link. The token rides in the #fragment, which browsers
+    never send to the server (so it stays out of logs and Referer); the
+    page moves it to sessionStorage and strips it from the address bar."""
+    name = _check_loopback_bind(host)
+    try:
+        if ipaddress.ip_address(name).version == 6:
+            name = f"[{name}]"
+    except ValueError:
+        pass
+    return f"http://{name}:{port}/#token={token_store.get()}"
+
+
 def start_dashboard(host: str = "127.0.0.1", port: int = 5555):
-    """Start the dashboard server."""
+    """Start the dashboard server (loopback only, token required)."""
     import uvicorn
 
-    print(f"\n  Harvey Dashboard running at http://{host}:{port}")
-    print("  Press Ctrl+C to stop.\n")
-    uvicorn.run(app, host=host, port=port, log_level="warning")
+    try:
+        bind = _check_loopback_bind(host)
+        url = dashboard_url(host, port)
+    except (DashboardSetupError, auth.TokenError) as e:
+        raise DashboardSetupError(str(e)) from e
+
+    print(f"\n  Harvey Dashboard running. Open this link to unlock it:\n\n    {url}\n")
+    print(f"  The token is stored in {token_store.path} (owner-only). Keep the link")
+    print("  private; anyone with it can use the dashboard. Press Ctrl+C to stop.\n")
+    if os.name == "nt":
+        print("  Windows: the token file is protected by your folder's permissions,")
+        print("  not POSIX file modes.\n")
+    uvicorn.run(app, host=bind, port=port, log_level="warning",
+                proxy_headers=False, server_header=False, date_header=False)

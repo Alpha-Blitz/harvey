@@ -18,12 +18,17 @@ from harvey.state import StateManager
 
 @pytest.fixture
 def client(monkeypatch):
-    """A dashboard bound to a throwaway database."""
+    """A dashboard bound to a throwaway database, used the way its own UI
+    uses it: same origin, with the token (tests/test_dashboard_auth.py covers
+    everyone else)."""
     with tempfile.TemporaryDirectory() as tmp:
         db = Path(tmp) / "harvey.db"
         monkeypatch.setattr(dash, "DB_PATH", db)
         monkeypatch.setattr(dash, "WEB_DIR", Path(__file__).resolve().parent.parent / "harvey" / "web")
-        with TestClient(dash.app) as c:
+        dash.token_store.configure(Path(tmp) / "data" / "dashboard-token")
+        token = dash.token_store.get()
+        with TestClient(dash.app, base_url="http://127.0.0.1:5555",
+                        headers={"Authorization": f"Bearer {token}"}) as c:
             c.db_path = db
             yield c
 
