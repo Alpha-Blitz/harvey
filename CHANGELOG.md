@@ -42,6 +42,15 @@ minor versions can still change behaviour.
   Outbox tab warn until it's set. The opt-out line must ask for a reply
   Harvey recognises and can't contain a link. Based on #13 by Camilo Cruz.
 
+### Changed
+
+- **Gmail reads only what's new.** After the first complete read of the
+  week, each cycle asks Gmail's history for messages added to the inbox
+  since the last check, so a busy mailbox costs what a quiet one does.
+  Harvey moves past them only once every reply has been handled, so one
+  it couldn't handle is read again. It reads the full week again when
+  Gmail's history marker has expired, and once a day as a backstop.
+
 ### Fixed
 
 - **You see it when Harvey isn't sending because it couldn't read your

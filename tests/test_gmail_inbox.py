@@ -19,6 +19,9 @@ def message(message_id, sender='person@example.test', body='Hello'):
 def provider(responses):
     p = GmailProvider(SimpleNamespace(), SimpleNamespace())
     p._token = AsyncMock(return_value='synthetic-token')   # never the real sign-in
+    # These tests are about the complete 7-day read: no history marker, so
+    # every get_replies is that read (tests/test_gmail_history.py covers the rest).
+    p._current_history_id = AsyncMock(return_value=None)
     p._request = AsyncMock(side_effect=responses)
     return p
 

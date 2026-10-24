@@ -137,6 +137,11 @@ class MailProvider(ABC):
     async def get_replies(self, limit: int = 50) -> list[InboundMessage]:
         """Fetch recent inbound messages (dedup is the caller's job)."""
 
+    def confirm_read(self) -> None:
+        """Every reply the last get_replies returned was handled. A provider
+        that reads incrementally (Gmail's history) moves on from them only
+        now; the others need do nothing."""
+
     @abstractmethod
     async def test_connection(self) -> tuple[bool, str]:
         """Cheap end-to-end credential check. Returns (ok, detail)."""

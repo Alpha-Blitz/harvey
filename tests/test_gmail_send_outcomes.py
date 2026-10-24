@@ -137,6 +137,10 @@ async def test_transport_read_failure_then_recovery_sends_once(monkeypatch, tmp_
             return httpx.Response(200, json={'id': 'sent'})
         if request.url.path.endswith('/messages/sent'):
             return httpx.Response(503, json={})
+        if request.url.path.endswith('/profile'):        # the history marker
+            return httpx.Response(200, json={'historyId': '1'})
+        if request.url.path.endswith('/history'):        # nothing new since it
+            return httpx.Response(200, json={'historyId': '1'})
         reads.append(request)
         return (httpx.Response(200, text='malformed') if len(reads) == 1
                 else httpx.Response(200, json={}))

@@ -652,6 +652,11 @@ class Handler:
             logger.info(f"Handler: processed {handled} inbound message(s).")
         else:
             logger.info("Handler: no new replies.")
+        if complete:
+            # Every reply read was handled: the provider may start its next
+            # read after these (Gmail's history marker). Not otherwise, so
+            # what wasn't handled is read again.
+            self.provider.confirm_read()
         return complete
 
     async def _handle_bounce(self, msg):
