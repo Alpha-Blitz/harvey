@@ -268,7 +268,7 @@ function actionText(a) {
     case 'outbox_edited': return 'You edited a draft';
     case 'conversation_status':
       return d.to === 'closed' ? 'You closed a conversation'
-        : d.from === 'needs_human' ? 'You handed a conversation back to Harvey' : 'You reopened a conversation';
+        : d.from === 'needs_human' ? 'You handed a conversation back to the agent' : 'You reopened a conversation';
   }
   const text = escHtml(String(a.action_type || '').replace(/_/g, ' '));
   return a.agent === 'main' ? 'Heartbeat: ' + text : text;
@@ -430,7 +430,7 @@ async function loadToday() {
   if (data.error) {
     // A failed check must never read as "Nothing needs you".
     el.innerHTML = emptyState(icon('alert'), 'Couldn\'t check what needs you',
-      'The dashboard hit an error reading Harvey\'s data: ' + escHtml(data.error));
+      'The dashboard hit an error reading the agent\'s data: ' + escHtml(data.error));
     return;
   }
 
@@ -446,7 +446,7 @@ async function loadToday() {
     el.innerHTML = '<div class="queue-clear">' +
       '<div class="queue-icon">' + icon('check') + '</div><div>' +
       '<div class="qtitle">Nothing needs you</div>' +
-      '<div class="qdetail">Harvey has everything it needs. Anything that requires a ' +
+      '<div class="qdetail">The agent has everything it needs. Anything that requires a ' +
       'decision — an email to approve, a signal to confirm — shows up here.</div>' +
       '</div></div>';
     return;
@@ -476,8 +476,8 @@ async function loadLiveStatus() {
   if (!d || !Array.isArray(d.steps)) {
     // Keep the last good numbers on screen, but never let them pass for live.
     const flag = el.querySelector('.live-flag');
-    if (flag) flag.textContent = "Can't reach Harvey right now — numbers below may be old.";
-    else el.innerHTML = '<p class="muted live-flag">Can\'t reach Harvey right now. ' +
+    if (flag) flag.textContent = "Can't reach the agent right now — numbers below may be old.";
+    else el.innerHTML = '<p class="muted live-flag">Can\'t reach the agent right now. ' +
       'Is the dashboard window still open?</p>';
     return;
   }
@@ -606,7 +606,7 @@ async function loadTodayActivity() {
   const shown = data.filter(a => a.agent !== 'main').slice(0, 8);
   if (!shown.length) {
     el.innerHTML = '<p class="muted" style="font-size:13px">' +
-      'Nothing yet. Every action Harvey takes shows up here.</p>';
+      'Nothing yet. Every action the agent takes shows up here.</p>';
     return;
   }
   el.innerHTML = '<div class="timeline">' + shown.map(a =>
@@ -683,8 +683,8 @@ async function loadSetupStatus() {
 
   el.innerHTML =
     '<div class="card setup-card">' +
-      '<div class="setup-head"><div><h3>Finish setting up Harvey</h3>' +
-        '<p class="muted">Harvey starts finding prospects and sending once these are done.</p></div>' +
+      '<div class="setup-head"><div><h3>Finish setting up the agent</h3>' +
+        '<p class="muted">The agent starts finding prospects and sending once these are done.</p></div>' +
         '<span class="setup-pct">' + done + ' of ' + required.length + ' done</span></div>' +
       '<div class="bar thick" style="margin-bottom:8px"><span style="width:' + pct + '%;background:var(--accent)"></span></div>' +
       required.map(c => renderCheck(c, false)).join('') +
@@ -825,7 +825,7 @@ async function setSignals(codes, status) {
     showToast(
       status === 'confirmed'
         ? 'Confirmed ' + data.changed + ' signal' + (data.changed === 1 ? '' : 's') +
-          ' — Harvey will collect ' + (data.changed === 1 ? 'it' : 'them') + ' from now on.'
+          ' — the agent will collect ' + (data.changed === 1 ? 'it' : 'them') + ' from now on.'
         : data.changed + ' signal' + (data.changed === 1 ? '' : 's') + ' turned off.',
       'success');
   } else {
@@ -972,7 +972,7 @@ function renderProfileCard(pending, running) {
   if (!pending) { el.innerHTML = ''; return; }
   el.innerHTML = '<div class="subhead">Read websites</div><div class="card"><div class="queue-item good" style="padding:0;border:0;box-shadow:none">' +
     '<div class="qtext"><div class="qtitle">' + pending + ' compan' + (pending === 1 ? 'y' : 'ies') +
-    ' not looked at yet</div><div class="qdetail">Free, no account needed. Harvey reads each site for ' +
+    ' not looked at yet</div><div class="qdetail">Free, no account needed. The agent reads each site for ' +
     'who their agency is, what they are missing, and whether they run ads. Up to 200 per run.</div></div>' +
     '<button class="btn btn-primary btn-sm" onclick="runProfile(this)"' + (running ? ' disabled' : '') + '>' +
     (running ? 'Busy…' : 'Read their sites') + '</button></div></div>';
@@ -995,7 +995,7 @@ function renderDiscoverResult(report, running) {
   const el = document.getElementById('discover-result');
   if (running) {
     el.innerHTML = '<div class="card"><h2>Running…</h2>' +
-      '<p class="muted" style="font-size:13px">Harvey is working through the ' +
+      '<p class="muted" style="font-size:13px">The agent is working through the ' +
       'queries. Results land in Companies, and the run log is on Today.</p></div>';
     return;
   }
@@ -1388,7 +1388,7 @@ async function loadHarveyStatus() {
   const running = !!data.running;
 
   headerDot.className = 'status-dot ' + (running ? 'running' : 'stopped');
-  headerText.textContent = running ? 'Harvey is running' : 'Harvey is stopped';
+  headerText.textContent = running ? 'Agent is running' : 'Agent is stopped';
   document.getElementById('control-dot').className = 'dot ' + (running ? 'running' : 'stopped');
   const label = document.getElementById('control-label');
   label.className = 'label ' + (running ? 'running' : 'stopped');
@@ -1400,7 +1400,7 @@ async function loadHarveyStatus() {
     if (data.started_at) info += ' &middot; started ' + formatDate(data.started_at);
     meta.innerHTML = info;
   } else {
-    meta.innerHTML = 'Harvey wakes every few minutes, does what needs doing, and sleeps.';
+    meta.innerHTML = 'The agent wakes every few minutes, does what needs doing, and sleeps.';
   }
 
   document.getElementById('btn-start').style.display = running ? 'none' : '';
@@ -1411,7 +1411,7 @@ async function startHarvey() {
   const btn = document.getElementById('btn-start');
   btn.disabled = true;
   const data = await api('/api/harvey/start', {method: 'POST'});
-  if (data && data.success) showToast('Harvey started.', 'success');
+  if (data && data.success) showToast('Agent started.', 'success');
   else showToast((data && data.message) || 'Failed to start.', 'error');
   btn.disabled = false;
   loadHarveyStatus();
@@ -1421,7 +1421,7 @@ async function stopHarvey() {
   const btn = document.getElementById('btn-stop');
   btn.disabled = true;
   const data = await api('/api/harvey/stop', {method: 'POST'});
-  if (data && data.success) showToast('Harvey stopped.', 'success');
+  if (data && data.success) showToast('Agent stopped.', 'success');
   else showToast((data && data.message) || 'Failed to stop.', 'error');
   btn.disabled = false;
   loadHarveyStatus();
@@ -1435,7 +1435,7 @@ async function loadLogs() {
     el.textContent = data.lines.join('\n');
     if (stick) el.scrollTop = el.scrollHeight;
   } else {
-    el.textContent = 'No logs yet. Start Harvey to see activity.';
+    el.textContent = 'No logs yet. Start the agent to see activity.';
   }
 }
 
@@ -1487,9 +1487,9 @@ function quotaCardHtml(data) {
   let html = '<h2>' + escHtml(title) + '</h2>';
   if (!data.quota || !Object.keys(data.quota).length) {
     const why = provider === 'codex'
-      ? "Quota unavailable: Harvey couldn't read your ChatGPT plan's limits (check codex login, the Codex CLI version, and network)."
-      : "Quota unavailable: Harvey couldn't read your Claude subscription's limits (check claude login and network).";
-    return html + '<p class="muted">' + escHtml(why) + ' Until it can, budgets count Harvey\'s own calls.</p>';
+      ? "Quota unavailable: the agent couldn't read your ChatGPT plan's limits (check codex login, the Codex CLI version, and network)."
+      : "Quota unavailable: the agent couldn't read your Claude subscription's limits (check claude login and network).";
+    return html + '<p class="muted">' + escHtml(why) + ' Until it can, budgets count the agent\'s own calls.</p>';
   }
   const labels = {five_hour: '5-hour window', seven_day: 'Weekly', primary: 'Primary window',
                   secondary: 'Secondary window', limit_reached: 'Usage limit reached'};
@@ -1574,7 +1574,7 @@ async function loadUsage() {
   const anyRows = (data.by_agent || []).length || (data.by_task || []).length;
   if (!anyRows) {
     tablesEl.innerHTML = emptyState(icon('usage'), 'No usage recorded yet',
-      'Once Harvey starts making model calls (Claude or Codex), every one is logged here with exact calls and tokens by provider, agent and task.');
+      'Once the agent starts making model calls (Claude or Codex), every one is logged here with exact calls and tokens by provider, agent and task.');
   } else {
     const providers = data.by_provider || [];
     const showProviders = providers.length > 1 || (providers.length === 1 && providers[0].provider !== 'claude');
@@ -1625,7 +1625,7 @@ async function loadOutbox() {
     (pending.length && !data.paused
       ? (pending.length > pending.filter(p => heldReason(p)).length
         ? '<button class="btn btn-primary btn-sm" onclick="outboxApproveAll()" ' +
-          'title="Emails Harvey held are left for you to approve one by one">Approve all ' +
+          'title="Emails the agent held are left for you to approve one by one">Approve all ' +
           (pending.length - pending.filter(p => heldReason(p)).length) + '</button>' : '') : '') +
     (data.paused
       ? '<button class="btn btn-secondary btn-sm" onclick="sendingToggle(\'resume\')">' +
@@ -1650,8 +1650,8 @@ async function loadOutbox() {
   desk.innerHTML = pending.length ? renderDesk(pending, _desk.i) :
     '<div class="card">' + emptyState(icon('check'), 'Nothing to review',
       _sendingMode && _sendingMode.mode === 'autopilot'
-        ? 'Autopilot is on, so Harvey sends on its own. Anything it holds for you shows up here.'
-        : 'Every draft Harvey writes lands here first. Approve one and it sends on schedule.') +
+        ? 'Autopilot is on, so the agent sends on its own. Anything it holds for you shows up here.'
+        : 'Every draft the agent writes lands here first. Approve one and it sends on schedule.') +
     '</div>';
 
   const table = (title, rows, cols) => {
@@ -1731,7 +1731,7 @@ function sendingModeBanner(m) {
   if (!m) return '';
   if (m.mode === 'autopilot') {
     return '<div class="banner wait mode-banner">' + icon('alert') + '<div><b>Autopilot is on</b>' +
-      '<p>Harvey sends email on its own. It holds anything that links to a site that isn’t yours or ' +
+      '<p>The agent sends email on its own. It holds anything that links to a site that isn’t yours or ' +
       'quotes its own instructions; those wait here' + (m.held ? ' (' + m.held + ' now)' : '') + '.</p></div>' +
       '<button class="btn btn-secondary btn-sm" onclick="setSendingMode(\'approval\')"' +
         (_modeBusy ? ' disabled' : '') + '>Turn off autopilot</button></div>';
@@ -1740,7 +1740,7 @@ function sendingModeBanner(m) {
   return '<div class="banner mode-banner">' + icon('check') + '<div><b>Approval mode</b>' +
     '<p>' + (instantly
       ? 'Instantly can’t hold single emails, so campaigns aren’t sent to Instantly until you turn on autopilot.'
-      : 'Every email Harvey writes waits here until you approve it.') +
+      : 'Every email the agent writes waits here until you approve it.') +
     ' <a href="#" onclick="goTab(\'settings\');return false">About autopilot</a></p></div></div>';
 }
 
@@ -1750,12 +1750,12 @@ function sendingModeCard(m) {
   const instantly = m.provider === 'instantly';
   const domains = (m.your_domains || []).map(escHtml).join(', ') || 'none yet';
   let html = '<div class="card mode-card"><h3>Sending mode: ' + (auto ? 'Autopilot' : 'Approval') + '</h3>' +
-    '<p><b>Approval</b> (the default): every email Harvey writes, first emails, follow-ups and replies, ' +
+    '<p><b>Approval</b> (the default): every email the agent writes, first emails, follow-ups and replies, ' +
       'waits in the Outbox until you approve it.' +
       (instantly ? ' On Instantly, which can’t hold single emails, that means campaigns aren’t deployed.' : '') + '</p>' +
-    '<p><b>Autopilot</b>: Harvey sends on its own, on schedule, within your daily limit and quiet hours. ' +
+    '<p><b>Autopilot</b>: the agent sends on its own, on schedule, within your daily limit and quiet hours. ' +
       'Opt-outs, bounces and Pause all sending work the same. It still holds an email for you when it links ' +
-      'to, or gives an address at, a site that isn’t yours, or quotes Harvey’s own instructions: text from ' +
+      'to, or gives an address at, a site that isn’t yours, or quotes the agent’s own instructions: text from ' +
       'websites and replies can try to steer what it writes. The first reply after you undo an opt-out waits too.</p>' +
     '<p class="muted">Counted as yours: ' + domains + (m.booking_page ? '; your booking page ' + escHtml(m.booking_page) : '') +
       '. Add others under <code>channels.email.link_domains</code> in <code>' + escHtml(m.file) + '</code>.</p>';
@@ -1767,7 +1767,7 @@ function sendingModeCard(m) {
         (_modeBusy ? ' disabled' : '') + '>Turn off autopilot</button></div>';
   } else if (_autopilotArmed) {
     html += '<div class="convo-actions mode-confirm"><span class="muted">Approve a batch or two by hand first ' +
-      'and read what Harvey writes. Type <b>autopilot</b> to turn it on. It starts from Harvey’s next cycle.</span>' +
+      'and read what the agent writes. Type <b>autopilot</b> to turn it on. It starts from the agent’s next cycle.</span>' +
       '<input class="form-input" id="autopilot-confirm" autocomplete="off" aria-label="Type autopilot to confirm" ' +
         'oninput="document.getElementById(\'autopilot-go\').disabled = this.value.trim().toLowerCase() !== \'autopilot\'" ' +
         'onkeydown="if (event.key === \'Enter\' && this.value.trim().toLowerCase() === \'autopilot\') setSendingMode(\'autopilot\')">' +
@@ -1809,7 +1809,7 @@ async function setSendingMode(mode) {
     if (res && res.success) {
       _autopilotArmed = false;
       showToast(mode === 'autopilot'
-        ? 'Autopilot is on from Harvey’s next cycle. Held emails still wait for you.'
+        ? 'Autopilot is on from the agent’s next cycle. Held emails still wait for you.'
         : 'Autopilot is off. Every email waits for you' +
           (res.requeued ? '; ' + res.requeued + ' queued by autopilot came back to the Outbox.' : '.') +
           (_sendingMode && _sendingMode.provider === 'instantly'
@@ -1840,7 +1840,7 @@ function renderDesk(items, i) {
     return '<div class="desk-item ' + (n === i ? 'active' : '') + '" onclick="deskGo(' + n + ')">' +
       '<span class="avatar">' + initials(parts[0], parts[1]) + '</span>' +
       '<div class="di-text"><div class="to">' + escHtml(who) +
-        (heldReason(it) ? ' <span class="tag t-bad" title="Harvey held this instead of sending it">Held</span>' : '') +
+        (heldReason(it) ? ' <span class="tag t-bad" title="The agent held this instead of sending it">Held</span>' : '') +
         '</div>' +
       '<div class="sub">' + escHtml(it.subject || '(no subject)') + '</div></div>' +
     '</div>';
@@ -1883,9 +1883,9 @@ function renderDesk(items, i) {
         '<span class="muted">sends ' + formatDate(cur.send_at) + '</span></div>' +
       renderDeskContext(cur.context) +
       (heldReason(cur)
-        ? '<div class="banner wait desk-held">' + icon('alert') + '<div><b>Harvey held this instead of sending it</b>' +
+        ? '<div class="banner wait desk-held">' + icon('alert') + '<div><b>The agent held this instead of sending it</b>' +
           '<div>' + escHtml(heldReason(cur)) + '. Read it before approving: text from a website or an ' +
-          'email can try to steer what Harvey writes.</div></div></div>'
+          'email can try to steer what the agent writes.</div></div></div>'
         : '') +
       draft + footer +
       '<div class="desk-actions">' + actions +
@@ -1981,7 +1981,7 @@ async function outboxApproveAll() {
   if (deskBusy()) return;
   const data = await api('/api/outbox/approve-all', {method: 'POST'});
   if (data && data.success) showToast('Approved ' + data.approved + ' email(s).' + (data.held
-    ? ' ' + data.held + ' Harvey held ' + (data.held === 1 ? 'is' : 'are') + ' left for you to read and approve one by one.'
+    ? ' ' + data.held + ' held by the agent ' + (data.held === 1 ? 'is' : 'are') + ' left for you to read and approve one by one.'
     : ''), 'success');
   else showToast(failMsg(data, 'Approve-all failed.'), 'error');
   loadOutbox();
@@ -2065,19 +2065,19 @@ async function submitFeedback(entityType, entityId, promptText) {
     body: JSON.stringify({entity_type: entityType, entity_id: entityId, comment: comment})
   });
   if (data && data.success) showToast(entityType === 'campaign'
-    ? 'Saved. Harvey follows it in the emails it writes from now on.'
-    : 'Saved. Harvey uses it if it writes this person\'s first email (Gmail, SMTP or Microsoft 365).', 'success');
+    ? 'Saved. The agent follows it in the emails it writes from now on.'
+    : 'Saved. The agent uses it if it writes this person\'s first email (Gmail, SMTP or Microsoft 365).', 'success');
   else showToast((data && data.message) || 'Could not save feedback.', 'error');
 }
 
 function fbProspect(i) {
   const p = _prospects[i];
-  if (p) submitFeedback('contact', p.id, 'Anything Harvey should know before writing to this person?');
+  if (p) submitFeedback('contact', p.id, 'Anything the agent should know before writing to this person?');
 }
 
 function fbCampaign(i) {
   const c = _campaigns[i];
-  if (c) submitFeedback('campaign', c.id, 'What should Harvey do differently in the emails it writes next? (e.g. "shorter; don\'t mention reviews")');
+  if (c) submitFeedback('campaign', c.id, 'What should the agent do differently in the emails it writes next? (e.g. "shorter; don\'t mention reviews")');
 }
 
 // Search and status filter live outside the table, so the 15-second refresh
@@ -2098,7 +2098,7 @@ async function loadProspects() {
   _prospects = data;
   if (!data.length) {
     el.innerHTML = emptyState(icon('contacts'), 'No contacts yet',
-      'Harvey hasn\'t found any prospects. Once it\'s running, the Scout agent searches the web for people matching your ideal customer profile in <b>harvey.yaml</b>.');
+      'The agent hasn\'t found any prospects. Once it\'s running, the Scout agent searches the web for people matching your ideal customer profile in <b>harvey.yaml</b>.');
     return;
   }
   if (!document.getElementById('contact-rows')) {
@@ -2159,7 +2159,7 @@ function renderContacts() {
       '<td class="muted" style="white-space:nowrap">' + relTime(p.created_at) + '</td>' +
       '<td><div class="cell-row">' + (p.status === 'opted_out' || p.opt_out_undone || _optOut.id === p.id
         ? '<button class="btn btn-ghost btn-sm" onclick="toggleOptOut(' + i + ')" ' +
-          'aria-expanded="' + (_optOut.id === p.id) + '" title="What made Harvey stop emailing them">' +
+          'aria-expanded="' + (_optOut.id === p.id) + '" title="What made the agent stop emailing them">' +
           (p.status === 'opted_out' ? 'Why?' : 'Opt-out history') + '</button>' : '') +
         '<button class="btn btn-ghost btn-sm row-action" onclick="fbProspect(' + i + ')" ' +
         'title="Leave feedback on this contact">Feedback</button></div></td></tr>';
@@ -2197,13 +2197,13 @@ function optOutPanel(p) {
   const name = escHtml([p.first_name, p.last_name].filter(Boolean).join(' ') || p.email);
   if (!d) return '<div class="optout-panel muted">Loading…</div>';
   if (d.error) return '<div class="optout-panel muted">Couldn’t load the opt-out record. Try again.</div>';
-  let html = '<div class="optout-panel"><h4>' + (d.opted_out ? 'Why Harvey stopped emailing ' : 'Opt-out history for ') +
+  let html = '<div class="optout-panel"><h4>' + (d.opted_out ? 'Why the agent stopped emailing ' : 'Opt-out history for ') +
     name + '</h4>';
   if (d.recorded) {
     html += '<p>' + escHtml(d.why) + '</p><div class="optout-meta">' +
       escHtml(own(OPT_OUT_RULES, d.rule) || d.rule || '') + (d.at ? ' · ' + relTime(d.at) : '') + '</div>';
   } else if (d.opted_out || (d.history || []).length) {
-    html += '<p>They opted out before Harvey kept a record of why.' +
+    html += '<p>They opted out before the agent kept a record of why.' +
       (d.message ? ' The last thing they wrote:' : ' There’s no reply from them on file.') + '</p>';
   }
   if (d.message) {
@@ -2218,8 +2218,8 @@ function optOutPanel(p) {
     html += '<div class="convo-actions"><span class="muted">Not opted out now (' +
       escHtml(statusMeta(d.status).label) + ').</span></div>';
   } else if (_optOut.armed) {
-    html += '<div class="convo-actions"><span class="muted">Harvey will treat them as having replied. Nothing is ' +
-      'sent automatically, emails the opt-out cancelled stay cancelled, and Harvey’s answer to their next ' +
+    html += '<div class="convo-actions"><span class="muted">The agent will treat them as having replied. Nothing is ' +
+      'sent automatically, emails the opt-out cancelled stay cancelled, and the agent’s answer to their next ' +
       'reply waits for your approval, even on autopilot. Only undo it if they didn’t mean to opt out.</span>' +
       '<button class="btn btn-primary btn-sm" onclick="undoOptOut()"' + (_optOut.busy ? ' disabled' : '') +
         '>Confirm undo</button>' +
@@ -2240,7 +2240,7 @@ async function undoOptOut() {
     method: 'POST', headers: {'Content-Type': 'application/json'},
     body: JSON.stringify({confirm: true}),
   });
-  if (res && res.success) showToast('Opt-out undone. They’re marked as replied; Harvey sends nothing on its own.', 'success');
+  if (res && res.success) showToast('Opt-out undone. They’re marked as replied; the agent sends nothing on its own.', 'success');
   else showToast(failMsg(res, 'Could not undo the opt-out. Try again.'), 'error');
   if (_optOut.id !== id) return;
   _optOut.armed = false;
@@ -2364,7 +2364,7 @@ async function loadCampaigns() {
   _campaigns = data;
   if (!data.length) {
     el.innerHTML = emptyState(icon('campaigns'), 'No campaigns yet',
-      'The Writer agent hasn\'t drafted any sequences. It kicks in automatically once Harvey has scored prospects to write for.');
+      'The Writer agent hasn\'t drafted any sequences. It kicks in automatically once the agent has scored prospects to write for.');
     return;
   }
   let html = '';
@@ -2383,7 +2383,7 @@ async function loadCampaigns() {
           return '<span class="rcpt-who">' + escHtml(r.email) + '</span>' +
             '<button class="btn btn-secondary btn-sm" onclick="openInGmail(' + i + ',' + s + ',' + ri + ')">' +
             'Open in Gmail</button>' +
-            '<span class="muted" style="font-size:12px">Harvey won\'t send follow-ups to people you emailed yourself.</span>';
+            '<span class="muted" style="font-size:12px">The agent won\'t send follow-ups to people you emailed yourself.</span>';
         }
         if (s !== 0) return '';
         if (!r.can_send_by_hand) {
@@ -2488,11 +2488,11 @@ function convoCard(c) {
     }
     const m = it.msg, sent = m.sender === 'harvey';
     return '<div class="thread-msg ' + (sent ? 'sent' : 'received') + '"><div class="sender">' +
-      (sent ? 'Harvey' : escHtml(first)) + ' &middot; ' + relTime(m.timestamp) + '</div>' +
+      (sent ? 'Agent' : escHtml(first)) + ' &middot; ' + relTime(m.timestamp) + '</div>' +
       escHtml(m.content) + '</div>';
   }).join('');
   const draft = c.draft
-    ? '<div class="thread-draft"><div class="sender">' + icon('pen') + 'Harvey drafted a reply · waiting for you</div>' +
+    ? '<div class="thread-draft"><div class="sender">' + icon('pen') + 'The agent drafted a reply · waiting for you</div>' +
       '<div class="td-body">' + escHtml(c.draft.body) + '</div>' +
       '<button class="btn btn-primary btn-sm" onclick="goTab(\'outbox\')">Review in Outbox' + icon('arrow') + '</button></div>'
     : '';
@@ -2514,8 +2514,8 @@ function convoCard(c) {
 function convoActions(c) {
   if (c.status === 'needs_human') {
     return '<div class="convo-actions"><span class="muted">' + icon('alert') +
-      'Harvey handed this to you. Reply from your inbox, then:</span>' +
-      '<button class="btn btn-secondary btn-sm" onclick="setConvoStatus(' + jsq(c.id) + ',\'open\')">Hand back to Harvey</button>' +
+      'The agent handed this to you. Reply from your inbox, then:</span>' +
+      '<button class="btn btn-secondary btn-sm" onclick="setConvoStatus(' + jsq(c.id) + ',\'open\')">Hand back to the agent</button>' +
       '<button class="btn btn-secondary btn-sm" onclick="setConvoStatus(' + jsq(c.id) + ',\'closed\')">Close</button></div>';
   }
   if (c.status === 'open') {
@@ -2524,7 +2524,7 @@ function convoActions(c) {
   }
   if (c.status === 'closed' && c.prospect_status === 'opted_out') {
     // Reopening wouldn't help: Harvey never answers someone who opted out.
-    return '<div class="convo-actions"><span class="muted">' + icon('alert') + 'Opted out. Harvey won’t write to them.</span>' +
+    return '<div class="convo-actions"><span class="muted">' + icon('alert') + 'Opted out. The agent won’t write to them.</span>' +
       '<button class="btn btn-secondary btn-sm" onclick="showOptOut(' + jsq(c.prospect_id) + ',' + jsq(c.prospect_email) +
       ')">Why opted out?</button></div>';
   }
@@ -2540,7 +2540,7 @@ async function setConvoStatus(id, status) {
     method: 'POST', headers: {'Content-Type': 'application/json'},
     body: JSON.stringify({status: status}),
   });
-  if (data && data.success) showToast(status === 'open' ? 'Open again. Harvey will answer the next reply.' : 'Closed. A new reply starts a new conversation.', 'success');
+  if (data && data.success) showToast(status === 'open' ? 'Open again. The agent will answer the next reply.' : 'Closed. A new reply starts a new conversation.', 'success');
   else showToast(failMsg(data, 'Could not update that conversation.'), 'error');
   loadConversations();
   loadToday();
@@ -2552,7 +2552,7 @@ async function loadActivity() {
   if (!data) { el.innerHTML = offlineState(); return; }
   if (!data.length) {
     el.innerHTML = emptyState(icon('activity'), 'No activity yet',
-      'Harvey hasn\'t taken any actions. Every prospect found, email written, and reply handled will appear here the moment it happens.');
+      'The agent hasn\'t taken any actions. Every prospect found, email written, and reply handled will appear here the moment it happens.');
     return;
   }
   let html = '<div class="card"><div class="timeline">';

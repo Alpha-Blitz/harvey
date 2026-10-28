@@ -1,4 +1,4 @@
-"""Harvey Dashboard — local web UI to set up, control, and monitor Harvey."""
+"""AI Automation Labs dashboard — local web UI to set up, control, and monitor the agent."""
 
 import asyncio
 import ipaddress
@@ -50,7 +50,7 @@ def _resolve_config_file() -> Path:
 
 # No /docs, /redoc or /openapi.json: the API is for this UI only, and every
 # route except the static shell needs the token (see dashboard_auth).
-app = FastAPI(title="Harvey Dashboard", docs_url=None, redoc_url=None, openapi_url=None)
+app = FastAPI(title="AI Automation Labs Dashboard", docs_url=None, redoc_url=None, openapi_url=None)
 token_store = auth.TokenStore(TOKEN_FILE)
 app.add_middleware(auth.DashboardGuard, store=token_store)
 
@@ -159,7 +159,7 @@ def _write_env_file(updates: dict[str, str]):
 
 
 def _check_harvey_pid() -> int | None:
-    """Check if there's a running Harvey process from a PID file."""
+    """Check if there's a running agent process from a PID file."""
     global _harvey_process, _harvey_started_at
     if _harvey_process and _harvey_process.poll() is None:
         return _harvey_process.pid
@@ -258,10 +258,10 @@ async def get_setup_status():
         except Exception:
             pass
     checks.append({
-        "id": "config", "label": f"Harvey configured ({config_path.name})",
+        "id": "config", "label": f"Agent configured ({config_path.name})",
         "done": config_valid,
         "required": True,
-        "help": "Train Harvey on your product. Use the trainer or set up manually through Claude.",
+        "help": "Train the agent on your product. Use the trainer or set up manually through Claude.",
     })
 
     # 6. Product trained
@@ -312,7 +312,7 @@ async def get_setup_status():
         "required": provider != "instantly",
         "help": ("A new mailbox needs 2-4 weeks of warmup before cold email, and warmup "
                  "keeps it out of spam after that. We recommend TrulyInbox: connect it and "
-                 "Harvey shows whether your mailbox is warmed."),
+                 "the agent shows whether your mailbox is warmed."),
         "link": ti.AFFILIATE_URL,
     })
 
@@ -596,7 +596,7 @@ async def get_feedback(entity_type: str, entity_id: str):
 
 @app.get("/api/harvey/status")
 async def get_harvey_status():
-    """Check if Harvey is currently running."""
+    """Check if the agent is currently running."""
     pid = _check_harvey_pid()
     started = _harvey_started_at.isoformat() if _harvey_started_at else None
     return {"running": pid is not None, "pid": pid, "started_at": started}
@@ -604,15 +604,15 @@ async def get_harvey_status():
 
 @app.post("/api/harvey/start")
 async def start_harvey():
-    """Start Harvey's heartbeat loop as a subprocess."""
+    """Start the agent's heartbeat loop as a subprocess."""
     global _harvey_process, _harvey_started_at
 
     if _check_harvey_pid():
-        return {"success": False, "message": "Harvey is already running."}
+        return {"success": False, "message": "The agent is already running."}
     from harvey.main import _needs_setup
     if _needs_setup():
         return {"success": False,
-                "message": "Harvey isn't set up yet. Run `harvey setup` in a terminal first."}
+                "message": "The agent isn't set up yet. Run `harvey setup` in a terminal first."}
 
     # Ensure data dir exists
     (PROJECT_ROOT / "data").mkdir(parents=True, exist_ok=True)
@@ -640,8 +640,8 @@ async def start_harvey():
             # Child holds its own copies of the fds; don't leak ours.
             log_handle.close()
     except Exception as e:
-        logger.warning("Failed to start Harvey: %s", e)
-        return {"success": False, "message": f"Failed to start Harvey: {e}"}
+        logger.warning("Failed to start the agent: %s", e)
+        return {"success": False, "message": f"Failed to start the agent: {e}"}
     _harvey_started_at = datetime.now()
     # The loop writes its own PID file once it holds the loop lock. Writing
     # the child's PID here would overwrite a running loop's record if this
@@ -651,12 +651,12 @@ async def start_harvey():
 
 @app.post("/api/harvey/stop")
 async def stop_harvey():
-    """Stop the Harvey subprocess."""
+    """Stop the agent subprocess."""
     global _harvey_process, _harvey_started_at
 
     pid = _check_harvey_pid()
     if not pid:
-        return {"success": False, "message": "Harvey is not running."}
+        return {"success": False, "message": "The agent is not running."}
 
     own = _harvey_process if _harvey_process and _harvey_process.pid == pid else None
 
@@ -683,12 +683,12 @@ async def stop_harvey():
                 pass
             await asyncio.sleep(0.5)
     except OSError as e:
-        logger.warning("Couldn't signal Harvey (pid %s): %s", pid, e)
+        logger.warning("Couldn't signal the agent (pid %s): %s", pid, e)
 
     if alive():
         # Started by another user, or from an elevated terminal on Windows.
         return {"success": False,
-                "message": f"Couldn't stop Harvey (pid {pid}). Stop it where it was started."}
+                "message": f"Couldn't stop the agent (pid {pid}). Stop it where it was started."}
 
     _harvey_process = None
     _harvey_started_at = None
@@ -1072,7 +1072,7 @@ async def set_sending_mode(request: Request):
     if mode not in ("approval", "autopilot"):
         return _refuse('expected {"mode": "approval"} or {"mode": "autopilot", "confirm": "autopilot"}', 400)
     if mode == "autopilot" and body.get("confirm") != "autopilot":
-        return _refuse('Type "autopilot" to confirm: Harvey will send email without asking you.', 400)
+        return _refuse('Type "autopilot" to confirm: the agent will send email without asking you.', 400)
     path = _resolve_config_file()
     try:
         set_require_approval(mode == "approval", path)
@@ -1198,7 +1198,7 @@ def _harvey_can_send() -> bool:
 
 
 def _send_as() -> str:
-    """The address Harvey sends as, so Gmail opens the right account."""
+    """The address the agent sends as, so Gmail opens the right account."""
     try:
         from harvey.config import load_config
         return load_config().persona.email or ""
@@ -1312,7 +1312,7 @@ async def mark_prospect_sent(prospect_id: str, request: Request):
             await state.set_setting(key, current)
             if prospect_id in await _harvey_committed_ids():
                 await state.delete_setting(key)
-                return _refuse("Harvey has already approved or sent an email to this person. "
+                return _refuse("The agent has already approved or sent an email to this person. "
                                "Check the Outbox.")
             await state.update_prospect_status(prospect_id, "contacted")
             # Anything Harvey had queued for them must not go out as well.
@@ -1975,7 +1975,7 @@ async def get_live_status():
 
     next_tab = ""   # where the next step is done, when it's done in the dashboard
     if reading or finding:
-        next_up = "Wait — Harvey is working. This page updates by itself."
+        next_up = "Wait — the agent is working. This page updates by itself."
     elif finding_emails:
         next_up = "Wait — emails are being found."
     elif stopped:
@@ -2065,12 +2065,12 @@ async def get_today():
         # Ordered by how much it blocks Harvey from doing anything at all.
         brain = await _brain_status()
         if brain.get("status") == "paused":
-            who = "Codex" if brain.get("provider") == "codex" else "Harvey's model"
+            who = "Codex" if brain.get("provider") == "codex" else "The agent's model"
             items.append({
                 "key": "brain-paused", "tone": "bad",
-                "title": f"{who} is paused, so Harvey is waiting",
+                "title": f"{who} is paused, so the agent is waiting",
                 "detail": (str(brain.get("reason") or "It can't be used right now.")[:300] +
-                           " Replies and queued emails are untouched; Harvey resumes "
+                           " Replies and queued emails are untouched; the agent resumes "
                            "once it's fixed. harvey status --check says what's wrong."),
                 "action": "Open the log", "tab": "controls",
             })
@@ -2116,7 +2116,7 @@ async def get_today():
                        if c.get("required") and not c.get("done")]
             items.append({
                 "key": "setup", "tone": "warn",
-                "title": "Finish setting Harvey up",
+                "title": "Finish setting the agent up",
                 "detail": ", ".join(missing[:3]) or "Some required steps are incomplete.",
                 "action": "Open setup", "tab": "settings",
             })
@@ -2127,7 +2127,7 @@ async def get_today():
                 "title": (f"{len(proposed)} signal waiting for your confirmation"
                           if len(proposed) == 1
                           else f"{len(proposed)} signals waiting for your confirmation"),
-                "detail": ("Harvey won't collect anything you haven't approved. "
+                "detail": ("The agent won't collect anything you haven't approved. "
                            "Confirm which signals define a good prospect for you."),
                 "action": "Review signals", "tab": "signals",
             })
@@ -2164,7 +2164,7 @@ async def get_today():
                 "key": "needs-human", "tone": "bad",
                 "title": (f"{needs_human} conversation needs you" if needs_human == 1
                           else f"{needs_human} conversations need you"),
-                "detail": ("Harvey stopped and handed these over: an escalation, or a "
+                "detail": ("The agent stopped and handed these over: an escalation, or a "
                            "reply it had no safe answer for. Reply yourself, then close "
                            "it or hand it back."),
                 "action": "Read them", "tab": "conversations",
@@ -2187,7 +2187,7 @@ async def get_today():
                 "key": "replies", "tone": "good",
                 "title": (f"{open_convos} live conversation" if open_convos == 1
                           else f"{open_convos} live conversations"),
-                "detail": "People replied. Check how Harvey is handling them.",
+                "detail": "People replied. Check how the agent is handling them.",
                 "action": "Read conversations", "tab": "conversations",
             })
 
@@ -2206,7 +2206,7 @@ async def get_today():
 CATEGORY_META = {
     "discovery": {
         "label": "Discovery — who exists",
-        "blurb": "How Harvey finds businesses at all, and how visible they are. "
+        "blurb": "How the agent finds businesses at all, and how visible they are. "
                  "This is the only stage that costs money.",
     },
     "profile": {
@@ -2574,7 +2574,7 @@ def start_dashboard(host: str = "127.0.0.1", port: int = 5555):
     except (DashboardSetupError, auth.TokenError) as e:
         raise DashboardSetupError(str(e)) from e
 
-    print(f"\n  Harvey Dashboard running. Open this link to unlock it:\n\n    {url}\n")
+    print(f"\n  AI Automation Labs dashboard running. Open this link to unlock it:\n\n    {url}\n")
     print(f"  The token is stored in {token_store.path} (owner-only). Keep the link")
     print("  private; anyone with it can use the dashboard. Press Ctrl+C to stop.\n")
     if os.name == "nt":
